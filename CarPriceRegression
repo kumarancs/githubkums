@@ -1,0 +1,227 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Mar 20 09:38:58 2020
+
+@author: 146846
+"""
+
+# To predict the price of pre-owned cars
+import pandas as pd
+import numpy as np
+import seaborn as sns
+
+cars_data = pd.read_csv('cars_sampled.csv')
+
+# Set dimensions for plot
+# sns.set(rc={'figure.figsize':(11.7,8.27)})
+
+# deep copy
+cars = cars_data.copy()
+
+# structure of the dataset
+cars.info()
+
+pd.set_option('display.max_columns',500)
+pd.set_option('display.float_format',lambda x: '%.3f'%x)
+cars.describe()
+
+# drop unwanted columns
+col=['name','dateCrawled','dateCreated','postalCode','lastSeen']
+cars=cars.drop(columns=col,axis=1)
+
+# Remove duplicate records
+
+cars.drop_duplicates(keep='first',inplace=True)
+
+cars.isnull().sum()
+
+# year of Regn
+
+yearwise_count=cars['yearOfRegistration'].value_counts().sort_index()
+print(yearwise_count)
+
+# Working Range
+cars=cars[
+        (cars.yearOfRegistration <= 2018)
+        & (cars.yearOfRegistration >= 1950)
+        & (cars.price >= 100)
+        & (cars.price <= 150000)
+        & (cars.powerPS >= 10)
+        & (cars.powerPS <= 500)
+         ]
+
+#cars['monthOfRegistration']/=12
+cars['Age']=(2018-cars['yearOfRegistration'])+cars['monthOfRegistration']
+cars['Age'].describe()
+
+# Drop Redundant columns
+cars=cars.drop(columns=['yearOfRegistration','monthOfRegistration'],axis=1)
+
+# Visualize parameters
+
+sns.distplot(cars['Age'])
+sns.boxplot(y=cars['Age'])
+
+# Age vs price
+
+sns.regplot(x='Age',y='price',scatter=True,fit_reg=False,data=cars)
+
+# Variable Fuel type - Get counts
+cars['fuelType'].value_counts()
+
+# Get % wise breakup
+pd.crosstab(cars['fuelType'],columns='count',normalize=True)
+
+# Remove insignificant columns
+col=['seller','offerType','abtest']
+cars=cars.drop(columns=col,axis=1)
+cars_copy=cars.copy()
+
+# Correlation
+cars_select1=cars.select_dtypes(exclude=[object])
+
+correlation=cars_select1.corr()
+
+round(correlation,3)
+
+# Build Linear Regression and Random Fores on 
+# 1- Data obtained by ommitting rows with missing values
+# 2 - Data Obtained by inputting hte missing values
+
+# Omit missing values
+
+cars_omit=cars.dropna(axis=0)
+
+# convert categorical variables to columns
+cars_omit=pd.get_dummies(cars_omit,drop_first=True)
+
+# Import necessary libraries
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error
+
+# Separate input and output features
+
+x1=cars_omit.drop(['price'],axis='columns',inplace=False)
+y1=cars_omit['price']
+
+# Plot the variable price
+prices=pd.DataFrame({"1. Before":y1,"2.After":np.log(y1)})
+
+prices.hist()
+
+y1=np.log(y1)
+
+# split data into test and train
+X_train,X_test,y_train,y_test=train_test_split(x1,y1,test_size=0.3,random_state=3)
+
+# Baseline model for omitted data
+
+base_pred=np.mean(y_test)
+base_pred=np.repeat(base_pred,len(y_test))
+
+# To find the RMSE
+base_root_mean_square_error = np.sqrt(mean_squared_error(y_test,base_pred))
+
+# RMSE = 1.1274483657478247
+# Linear regression with Omitted data
+
+# set intercept as true
+lgr=LinearRegression(fit_intercept=True)
+
+# Model
+model_lin1=lgr.fit(X_train,y_train)
+# Model is now fitted
+
+# Predict the model on test set
+
+cars_predictions_lin1=lgr.predict(X_test)   # This returns the Y value predicted
+
+# Compute RMSE for the prediction
+
+lin_mse1=mean_squared_error(y_test,cars_predictions_lin1)
+lin_rmse1=np.sqrt(lin_mse1)
+print(lin_rmse1)
+
+# RMSE value got = 0.58268. This is less than the base line so good
+
+# Calculate the R Square value for the model
+
+r2_lin_test1=model_lin1.score(X_test,y_test)
+r2_lin_train1=model_lin1.score(X_train,y_train)
+
+print(r2_lin_test1,r2_lin_train1)
+# 0.7328979738571678 0.7540856969497609
+# This means that the model is able to capture almost the same variability in the test data
+# that it captures in the test data
+
+# Now verify the residuals -  difference between Test output value and the predicted output value
+
+residuals1=y_test-cars_predictions_lin1
+
+residuals1.describe()
+
+##############################################################
+
+# Random Forest method
+
+rf=RandomForestRegressor(n_estimators=100,max_features='auto',max_depth=100,min_samples_split=10,
+                         min_samples_leaf=4,random_state=1)
+
+# Model
+
+model_rf1=rf.fit(X_train,y_train)
+
+# Predict model using hte test set
+
+cars_predictions_rf1=rf.predict(X_test)
+
+# COmpute the RMSE for this model
+
+rf_mse1=mean_squared_error(y_test, cars_predictions_rf1)
+rf_rmse1=np.sqrt(rf_mse1)
+print(rf_mse1)
+
+# RMSE value is 0.2759108600379015  This is good
+
+# Calculate the R Square value
+
+r2_rf_test1=model_rf1.score(X_test,y_test)
+r2_rf_train1=model_rf1.score(X_train,y_train)
+
+print(r2_rf_test1,r2_rf_train1)
+
+#  0.7829421624158578 0.8768975914822185
+
+# Input data for null values
+
+#cars_imputed=cars.apply(lambda x:x.fillna(x.median())  \
+#                        if x.dtype='float' else  \ 
+#                        x.fillna(x.value_counts().index[0]))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
