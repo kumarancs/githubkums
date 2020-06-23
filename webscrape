@@ -1,0 +1,54 @@
+# -*- coding: utf-8 -*-
+"""
+@author: 146846
+"""
+# Import packages, methods
+from urllib.request import urlopen as uReq
+from bs4 import BeautifulSoup as soup
+import pandas as pd
+import os
+ws_url = 'https://helpx.adobe.com/support/programs/eol-matrix.html'
+RecSize = 6
+ScrapePath = 'D:\WebScrape'
+uClient = uReq(ws_url)
+page_html = uClient.read()
+uClient.close()
+
+# html parsing
+page_soup=soup(page_html,"html.parser")
+
+containers = page_soup.findAll("div",{"class":"table parbase section"})
+
+# For Adobe Applications starting with A and B
+TRows=containers[0].findAll("td")
+
+dfPName = pd.DataFrame(columns=['Id','Product Name'])
+dfPVersion = pd.DataFrame(columns=['Id','Version'])
+dfPBuild = pd.DataFrame(columns=['Id','Build'])
+dfPGA = pd.DataFrame(columns=['Id','General Availability'])
+dfPEndCore = pd.DataFrame(columns=['Id','End of Core Support'])
+dfPEndExtend = pd.DataFrame(columns=['Id','End of Extended Support'])
+dfPConsolid = pd.DataFrame(columns=['Id','Product Name','Version','General Availability','End of Core Support','End of Extended Support'])
+NumCtr=0
+for VerInfo in TRows:
+        if ((NumCtr%6)==0) and (NumCtr>5):
+            dfPName = dfPName.append({'Id':(NumCtr//RecSize),'Product Name':VerInfo.text.strip()},ignore_index=True)
+        elif ((NumCtr%6)==1) and (NumCtr>5):
+            dfPVersion = dfPVersion.append({'Id':(NumCtr//RecSize),'Version':VerInfo.text.strip()},ignore_index=True)
+        elif ((NumCtr%6)==2) and (NumCtr>5):
+            dfPBuild = dfPBuild.append({'Id':(NumCtr//RecSize),'Build':VerInfo.text.strip()},ignore_index=True)
+        elif ((NumCtr%6)==3) and (NumCtr>5):
+            dfPGA = dfPGA.append({'Id':(NumCtr//RecSize),'General Availability':VerInfo.text.strip()},ignore_index=True)
+        elif ((NumCtr%6)==4) and (NumCtr>5):
+            dfPEndCore = dfPEndCore.append({'Id':(NumCtr//RecSize),'End of Core Support':VerInfo.text.strip()},ignore_index=True)
+        elif ((NumCtr%6)==5) and (NumCtr>5):
+            dfPEndExtend = dfPEndExtend.append({'Id':(NumCtr//RecSize),'End of Extended Support':VerInfo.text.strip()},ignore_index=True)
+        NumCtr=NumCtr+1
+
+dfPConsolid = pd.merge(dfPName,dfPVersion,on='Id')
+dfPConsolid = pd.merge(dfPConsolid,dfPBuild,on='Id')
+dfPConsolid = pd.merge(dfPConsolid,dfPGA,on='Id')
+dfPConsolid = pd.merge(dfPConsolid,dfPEndCore,on='Id')
+dfPConsolid = pd.merge(dfPConsolid,dfPEndExtend,on='Id')
+ScrapePath = ScrapePath + '\Adobe_ProdDetails.csv'
+dfPConsolid.to_csv(ScrapePath)
